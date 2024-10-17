@@ -1,0 +1,7 @@
+## Interface: 11302
+## Title: Addon Memory Usage
+## Notes: Helps reduce Lag & Improves Preformance
+## Author: Thatdruid
+## SavedVariables: savedVariables
+
+AMU.lua
