@@ -11,3 +11,6 @@ Key Features:
 
 ![amu demo2](https://github.com/user-attachments/assets/a9c70ecd-ab5d-4cd7-8edb-10c8d32cd065)
 ![amu demo1](https://github.com/user-attachments/assets/069e48a5-d906-49f4-ad43-3d454614eed4)
+
+
+![amu1 1](https://github.com/user-attachments/assets/49f8f9a4-b4dc-41fe-a0c7-3d23a26317f0)
