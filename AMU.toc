@@ -1,7 +1,9 @@
 ## Interface: 11302
 ## Title: Addon Memory Usage
-## Notes: Helps reduce Lag & Improves Preformance
-## Author: Thatdruid
-## SavedVariables: savedVariables
+## Notes: Helps reduce Lag & Improves Performance
+## Author: Pegga
+## Website: https://gitbug.com/Pegga/AddonMemoryUsage
+## Version: 1.1
+## SavedVariables: AMU_Settings
 
 AMU.lua
