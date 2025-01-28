@@ -228,23 +228,6 @@ local function ApplySettings()
     end
 end
 
--- Save the checkbox and slider states when the player logs out
-local function SaveSettings()
-    AMU_Settings.showBackground = frameBorderCheckbox:GetChecked()
-    AMU_Settings.showFPS = fpsCheckbox:GetChecked()
-    AMU_Settings.showHomeLatency = homeLatencyCheckbox:GetChecked()
-    AMU_Settings.showWorldLatency = worldLatencyCheckbox:GetChecked()
-    AMU_Settings.showMemoryUsage = memoryUsageCheckbox:GetChecked()
-    AMU_Settings.showMainFrame = mainFrameCheckbox:GetChecked()
-    AMU_Settings.horizontalLayout = layoutCheckbox:GetChecked()
-    AMU_Settings.scale = scaleSlider:GetValue()
-    AMU_Settings.textAlpha = textAlphaSlider:GetValue()
-    AMU_Settings.showMyStatsFrameBackdrop = showMyStatsFrameBackdropCheckbox:GetChecked()
-    AMU_Settings.myStatsFrameBackdropAlpha = myStatsFrameBackdropAlphaSlider:GetValue()
-end
-
-
-
 -- Create a tooltip
 frame:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -599,7 +582,20 @@ for i, checkbox in ipairs(checkboxes) do
     checkbox:SetPoint("TOPLEFT", optionsPanel, "TOPLEFT", 40, -180 - (i - 1) * 30)
 end
 
-
+-- Save the checkbox and slider states when the player logs out
+local function SaveSettings()
+    AMU_Settings.showBackground = frameBorderCheckbox:GetChecked()
+    AMU_Settings.showFPS = fpsCheckbox:GetChecked()
+    AMU_Settings.showHomeLatency = homeLatencyCheckbox:GetChecked()
+    AMU_Settings.showWorldLatency = worldLatencyCheckbox:GetChecked()
+    AMU_Settings.showMemoryUsage = memoryUsageCheckbox:GetChecked()
+    AMU_Settings.showMainFrame = mainFrameCheckbox:GetChecked()
+    AMU_Settings.horizontalLayout = layoutCheckbox:GetChecked()
+    AMU_Settings.scale = scaleSlider:GetValue()
+    AMU_Settings.textAlpha = textAlphaSlider:GetValue()
+    AMU_Settings.showMyStatsFrameBackdrop = showMyStatsFrameBackdropCheckbox:GetChecked()
+    AMU_Settings.myStatsFrameBackdropAlpha = myStatsFrameBackdropAlphaSlider:GetValue()
+end
 
 -- Apply settings on load
 ApplySettings()
