@@ -7,7 +7,7 @@ local function InitializeSettings()
         AMU_Settings = {}
     end
     AMU_Settings.scale = AMU_Settings.scale or 1
-    AMU_Settings.alpha = AMU_Settings.alpha or 0.7
+    AMU_Settings.alpha = AMU_Settings.alpha or 0.65
     AMU_Settings.textAlpha = AMU_Settings.textAlpha or 1
     AMU_Settings.showFPS = AMU_Settings.showFPS ~= false  -- Default to true if nil
     AMU_Settings.showHomeLatency = AMU_Settings.showHomeLatency ~= false  -- Default to true if nil
@@ -16,7 +16,10 @@ local function InitializeSettings()
     AMU_Settings.showBackground = AMU_Settings.showBackground ~= false  -- Default to true if nil
     AMU_Settings.showMainFrame = AMU_Settings.showMainFrame ~= false  -- Default to true if nil
     AMU_Settings.horizontalLayout = AMU_Settings.horizontalLayout or false  -- Default to vertical layout
+    AMU_Settings.showMyStatsFrameBackdrop = AMU_Settings.showMyStatsFrameBackdrop ~= false  -- Default to true if nil
+    AMU_Settings.myStatsFrameBackdropAlpha = AMU_Settings.myStatsFrameBackdropAlpha or 0.65  -- Default alpha for backdrop
 end
+
 
 -- Ensure settings are initialized
 InitializeSettings()
@@ -30,6 +33,30 @@ frame:EnableMouse(true)
 frame:RegisterForDrag("LeftButton")
 frame:SetScript("OnDragStart", frame.StartMoving)
 frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+
+frame:SetBackdrop({
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 16,
+    edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+})
+frame:SetBackdropColor(0, 0, 0, AMU_Settings.alpha)  -- Set backdrop color based on alpha setting
+
+frame:SetBackdropBorderColor(0, 0, 0)  -- Black border
+
+if AMU_Settings.showMyStatsFrameBackdrop then
+    frame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    frame:SetBackdropColor(0, 0, 0, AMU_Settings.myStatsFrameBackdropAlpha)
+    frame:SetBackdropBorderColor(0, 0, 0)  -- Black border
+end
 
 -- Create text labels with white color
 local latencyHomeLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -67,14 +94,29 @@ fpsValue:SetPoint("LEFT", fpsLabel, "RIGHT", 5, 0)
 -- Function to apply settings
 local function ApplySettings()
     frame:SetScale(AMU_Settings.scale)
-    frame:SetBackdrop({
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",  -- Border texture
-        tile = true, tileSize = 16, edgeSize = 10,  -- Larger edge size for thick border
-        insets = { left = -6, right = -6, top = -6, bottom = -6 }  -- Negative insets for outer extension
-    })
-    frame:SetBackdropColor(0, 0, 0, AMU_Settings.showBackground and AMU_Settings.alpha or 0)  -- Toggle backdrop visibility
-    frame:SetBackdropBorderColor(0, 0, 0, AMU_Settings.showBackground and 1 or 0)
     
+    if AMU_Settings.showMyStatsFrameBackdrop then
+        frame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = AMU_Settings.showBackground and "Interface\\Tooltips\\UI-Tooltip-Border" or nil,
+            tile = true,
+            tileSize = 16,
+            edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        })
+        frame:SetBackdropColor(0, 0, 0, AMU_Settings.myStatsFrameBackdropAlpha)
+        frame:SetBackdropBorderColor(0, 0, 0)  -- Black border
+    else
+        frame:SetBackdrop({
+            edgeFile = AMU_Settings.showBackground and "Interface\\Tooltips\\UI-Tooltip-Border" or nil,
+            tile = true,
+            tileSize = 16,
+            edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        })
+        frame:SetBackdropColor(0, 0, 0, AMU_Settings.alpha)
+    end
+
     local textAlpha = AMU_Settings.textAlpha or 1
     fpsLabel:SetAlpha(textAlpha)
     fpsValue:SetAlpha(textAlpha)
@@ -149,7 +191,7 @@ local function ApplySettings()
         frame:Hide()
     end
 
-       -- Adjust layout based on the setting (Up & Down , Left & Right)
+    -- Adjust layout based on the setting (Up & Down , Left & Right)
     if AMU_Settings.horizontalLayout then
         latencyHomeLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
         latencyHomeValue:SetPoint("LEFT", latencyHomeLabel, "RIGHT", 5, 0)
@@ -197,65 +239,11 @@ local function SaveSettings()
     AMU_Settings.horizontalLayout = layoutCheckbox:GetChecked()
     AMU_Settings.scale = scaleSlider:GetValue()
     AMU_Settings.textAlpha = textAlphaSlider:GetValue()
+    AMU_Settings.showMyStatsFrameBackdrop = showMyStatsFrameBackdropCheckbox:GetChecked()
+    AMU_Settings.myStatsFrameBackdropAlpha = myStatsFrameBackdropAlphaSlider:GetValue()
 end
 
--- This function runs when the player logs in
-local function OnPlayerLogin()
-    -- Check if the message has already been printed
-    if not messagePrinted then
-        -- Constructing the welcome message with colored text
-        local message = string.format(
-            "|cFF000000Addon Memory Usage|r |cFF808080by|r |cFFFFFFFFPegga|r"
-        )
-        -- Print the message
-        print(message)
 
-        -- Mark the message as printed
-        messagePrinted = true
-    end
-
-    -- Apply settings on login to ensure the frame displays correctly
-    ApplySettings()
-end
-
--- Function to update checkbox and slider states from saved variables
-local function UpdateSettingsStates()
-    if frameBorderCheckbox and fpsCheckbox and homeLatencyCheckbox and worldLatencyCheckbox and memoryUsageCheckbox and mainFrameCheckbox and layoutCheckbox then
-        frameBorderCheckbox:SetChecked(AMU_Settings.showBackground)
-        fpsCheckbox:SetChecked(AMU_Settings.showFPS)
-        homeLatencyCheckbox:SetChecked(AMU_Settings.showHomeLatency)
-        worldLatencyCheckbox:SetChecked(AMU_Settings.showWorldLatency)
-        memoryUsageCheckbox:SetChecked(AMU_Settings.showMemoryUsage)
-        mainFrameCheckbox:SetChecked(AMU_Settings.showMainFrame)
-        layoutCheckbox:SetChecked(AMU_Settings.horizontalLayout)
-        
-        -- Set text color based on checkbox state
-        frameBorderCheckbox.Text:SetTextColor(AMU_Settings.showBackground and 1 or 0.5, AMU_Settings.showBackground and 1 or 0.5, AMU_Settings.showBackground and 0 or 0.5)
-        fpsCheckbox.Text:SetTextColor(AMU_Settings.showFPS and 1 or 0.5, AMU_Settings.showFPS and 1 or 0.5, AMU_Settings.showFPS and 0 or 0.5)
-        homeLatencyCheckbox.Text:SetTextColor(AMU_Settings.showHomeLatency and 1 or 0.5, AMU_Settings.showHomeLatency and 1 or 0.5, AMU_Settings.showHomeLatency and 0 or 0.5)
-        worldLatencyCheckbox.Text:SetTextColor(AMU_Settings.showWorldLatency and 1 or 0.5, AMU_Settings.showWorldLatency and 1 or 0.5, AMU_Settings.showWorldLatency and 0 or 0.5)
-        layoutCheckbox .Text:SetTextColor(AMU_Settings.horizontalLayout and 1 or 0.5, AMU_Settings.horizontalLayout and 1 or 0.5, AMU_Settings.horizontalLayout and 0 or 0.5)
-        
-    end
-    if scaleSlider and textAlphaSlider then
-        scaleSlider:SetValue(AMU_Settings.scale)
-        textAlphaSlider:SetValue(AMU_Settings.textAlpha)
-    end
-end
-
--- Register the event
-local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("PLAYER_LOGIN")
-eventFrame:RegisterEvent("PLAYER_LOGOUT")
-eventFrame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_LOGIN" then
-        OnPlayerLogin()
-        UpdateSettingsStates()
-        self:UnregisterEvent("PLAYER_LOGIN")  -- Unregister to prevent multiple prints
-    elseif event == "PLAYER_LOGOUT" then
-        SaveSettings()
-    end
-end)
 
 -- Create a tooltip
 frame:SetScript("OnEnter", function(self)
@@ -268,23 +256,15 @@ frame:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
 end)
 
--- Create background
-local background = frame:CreateTexture(nil, "BACKGROUND")
-background:SetAllPoints(true)
-background:SetColorTexture(0, 0, 0, 0.5)
-
+-- Create the addon memory frame
 local addonMemoryFrame = CreateFrame("Frame", "AddonMemoryFrame", UIParent, "BackdropTemplate")
 addonMemoryFrame:SetSize(350, 600)  -- Frame size
 addonMemoryFrame:SetPoint("CENTER")  -- Center the frame
-
 addonMemoryFrame:SetBackdrop({
-
     edgeFile = "Interface/Tooltips/UI-Tooltip-Border",  -- Border texture
     tile = true, tileSize = 16, edgeSize = 12,  -- Larger edge size to extend the border
     insets = { left = -6, right = -6, top = -6, bottom = -6 }  -- Negative insets for outer extension
 })
-
--- Set the backdrop colors: black border and a transparent black background
 addonMemoryFrame:SetBackdropColor(0, 0, 0, 0.1)  -- Black background with transparency
 addonMemoryFrame:SetBackdropBorderColor(0, 0, 0)  -- Black border
 addonMemoryFrame:SetMovable(true)
@@ -304,7 +284,6 @@ end)
 addonMemoryFrame:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
 end)
-
 
 -- Create a background for the addon frame
 local addonBackground = addonMemoryFrame:CreateTexture(nil, "BACKGROUND")
@@ -350,7 +329,6 @@ totalAddonsLabel:SetPoint("TOPLEFT", addonMemoryFrame, "TOPLEFT", 10, -40)
 totalAddonsLabel:SetText("Addons Loaded: ") --total number of addons out of e.g. 56/100 
 totalAddonsLabel:SetTextColor(0.68, 0.85, 0.95) -- Light Blue
 
-
 local totalAddonsValue = addonMemoryFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 totalAddonsValue:SetPoint("LEFT", totalAddonsLabel, "RIGHT", 5, 0)
 totalAddonsValue:SetTextColor(1, 1, 1) -- White color
@@ -374,7 +352,7 @@ local function UpdateAddonMemoryList()
     end
 
     local addons = {}
-    local numAddOns = GetNumAddOns()
+    local numAddOns = _G.GetNumAddOns()
     for i = 1, numAddOns do
         if IsAddOnLoaded(i) then  -- Only show loaded addons
             local name = GetAddOnInfo(i)
@@ -507,11 +485,10 @@ reloadButton:GetFontString():SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")  -- F
 reloadButton:SetScript("OnClick", function()
     ReloadUI()  -- Reload the interface when the button is clicked
 end)
-
 -- Create interface options panel
 local optionsPanel = CreateFrame("Frame", "AMUOptionsPanel", UIParent, "BackdropTemplate")
 optionsPanel.name = "Addon Memory Usage"  -- Ensure the name matches what you expect to see in the options
-optionsPanel:SetSize(350, 400)  -- Adjusted height for contents
+optionsPanel:SetSize(300, 450)  -- Adjusted width and height for contents
 optionsPanel:SetPoint("CENTER")
 optionsPanel:SetBackdrop({
     bgFile = "Interface/Tooltips/UI-Tooltip-Background",  -- Background texture
@@ -535,7 +512,7 @@ title:SetTextColor(1, 0.5, 0.5) -- Color of title: light red
 
 -- Create scale slider
 local scaleSlider = CreateFrame("Slider", "AMUScaleSlider", optionsPanel, "OptionsSliderTemplate")
-scaleSlider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", -100, -40)
+scaleSlider:SetPoint("TOP", title, "BOTTOM", 0, -20)
 scaleSlider:SetMinMaxValues(0.5, 2)
 scaleSlider:SetValueStep(0.1)
 scaleSlider:SetValue(AMU_Settings.scale)
@@ -550,7 +527,7 @@ _G[scaleSlider:GetName() .. 'Text']:SetText('Scale')
 
 -- Create text alpha slider
 local textAlphaSlider = CreateFrame("Slider", "AMUTextAlphaSlider", optionsPanel, "OptionsSliderTemplate")
-textAlphaSlider:SetPoint("TOPLEFT", scaleSlider, "BOTTOMLEFT", 0, -40)
+textAlphaSlider:SetPoint("TOP", scaleSlider, "BOTTOM", 0, -25)
 textAlphaSlider:SetMinMaxValues(0.1, 1)
 textAlphaSlider:SetValueStep(0.1)
 textAlphaSlider:SetValue(AMU_Settings.textAlpha or 1)
@@ -563,31 +540,66 @@ _G[textAlphaSlider:GetName() .. 'Low']:SetText('0')
 _G[textAlphaSlider:GetName() .. 'High']:SetText('100')
 _G[textAlphaSlider:GetName() .. 'Text']:SetText('Text Alpha')
 
+-- Create MyStatsFrame backdrop alpha slider
+local myStatsFrameBackdropAlphaSlider = CreateFrame("Slider", "AMUMyStatsFrameBackdropAlphaSlider", optionsPanel, "OptionsSliderTemplate")
+myStatsFrameBackdropAlphaSlider:SetPoint("TOP", textAlphaSlider, "BOTTOM", 0, -25)
+myStatsFrameBackdropAlphaSlider:SetMinMaxValues(0.1, 1)
+myStatsFrameBackdropAlphaSlider:SetValueStep(0.1)
+myStatsFrameBackdropAlphaSlider:SetValue(AMU_Settings.myStatsFrameBackdropAlpha or 0.05)
+myStatsFrameBackdropAlphaSlider:SetWidth(200)
+myStatsFrameBackdropAlphaSlider:SetScript("OnValueChanged", function(self, value)
+    AMU_Settings.myStatsFrameBackdropAlpha = value
+    ApplySettings()
+end)
+_G[myStatsFrameBackdropAlphaSlider:GetName() .. 'Low']:SetText('0')
+_G[myStatsFrameBackdropAlphaSlider:GetName() .. 'High']:SetText('100')
+_G[myStatsFrameBackdropAlphaSlider:GetName() .. 'Text']:SetText('Background Alpha')
+
 -- Create a checkbox for frame border visibility
-local function CreateCheckbox(name, label, settingKey, yOffset)
+local function CreateCheckbox(name, label, settingKey, relativeTo, yOffset)
     local checkbox = CreateFrame("CheckButton", name, optionsPanel, "InterfaceOptionsCheckButtonTemplate")
-    checkbox:SetPoint("TOPLEFT", textAlphaSlider, "BOTTOMLEFT", 0, yOffset)
+    checkbox:SetPoint("TOP", relativeTo, "BOTTOM", 0, yOffset)
     checkbox.Text:SetText(label)
     checkbox.Text:SetTextColor(1, 1, 0)
     checkbox:SetChecked(AMU_Settings[settingKey])
     checkbox:SetScript("OnClick", function(self)
-    AMU_Settings[settingKey] = self:GetChecked() 
+        AMU_Settings[settingKey] = self:GetChecked()
         if AMU_Settings[settingKey] then
-                checkbox.Text:SetTextColor(1, 1, 0) 
-            elseif AMU_Settings[settingKey] == false then
-                checkbox.Text:SetTextColor(.5, .5, .5) -- sets the text color to grey if unchecked
+            checkbox.Text:SetTextColor(1, 1, 0)
+        else
+            checkbox.Text:SetTextColor(0.5, 0.5, 0.5) -- sets the text color to grey if unchecked
         end
         ApplySettings()
     end)
     return checkbox
 end
-local frameBorderCheckbox = CreateCheckbox("AMUFrameBorderCheckbox", "Show Frame Border", "showBackground", -40)
-local fpsCheckbox = CreateCheckbox("AMUFPSCheckbox", "Show FPS", "showFPS", -70)
-local homeLatencyCheckbox = CreateCheckbox("AMUHomeLatencyCheckbox", "Show Home Latency", "showHomeLatency", -100)
-local worldLatencyCheckbox = CreateCheckbox("AMUWorldLatencyCheckbox", "Show World Latency", "showWorldLatency", -130)
-local memoryUsageCheckbox = CreateCheckbox("AMUMemoryUsageCheckbox", "Show Memory Usage", "showMemoryUsage", -160)
-local mainFrameCheckbox = CreateCheckbox("AMUMainFrameCheckbox", "Show Main Frame", "showMainFrame", -190)
-local layoutCheckbox = CreateCheckbox("AMULayoutCheckbox", "Change Layout", "horizontalLayout", -220)
+
+local frameBorderCheckbox = CreateCheckbox("AMUFrameBorderCheckbox", "Show Frame Border", "showBackground", myStatsFrameBackdropAlphaSlider, -20)
+local fpsCheckbox = CreateCheckbox("AMUFPSCheckbox", "Show FPS", "showFPS", frameBorderCheckbox, -20)
+local homeLatencyCheckbox = CreateCheckbox("AMUHomeLatencyCheckbox", "Show Home Latency", "showHomeLatency", fpsCheckbox, -20)
+local worldLatencyCheckbox = CreateCheckbox("AMUWorldLatencyCheckbox", "Show World Latency", "showWorldLatency", homeLatencyCheckbox, -20)
+local memoryUsageCheckbox = CreateCheckbox("AMUMemoryUsageCheckbox", "Show Memory Usage", "showMemoryUsage", worldLatencyCheckbox, -20)
+local mainFrameCheckbox = CreateCheckbox("AMUMainFrameCheckbox", "Show Main Frame", "showMainFrame", memoryUsageCheckbox, -20)
+local layoutCheckbox = CreateCheckbox("AMULayoutCheckbox", "Change Layout", "horizontalLayout", mainFrameCheckbox, -20)
+local showMyStatsFrameBackdropCheckbox = CreateCheckbox("AMUShowMyStatsFrameBackdropCheckbox", "Show Frame Backdrop", "showMyStatsFrameBackdrop", layoutCheckbox, -20)
+
+-- Adjust checkbox positions
+local checkboxes = {
+    frameBorderCheckbox,
+    fpsCheckbox,
+    homeLatencyCheckbox,
+    worldLatencyCheckbox,
+    memoryUsageCheckbox,
+    mainFrameCheckbox,
+    layoutCheckbox,
+    showMyStatsFrameBackdropCheckbox
+}
+
+for i, checkbox in ipairs(checkboxes) do
+    checkbox:SetPoint("TOPLEFT", optionsPanel, "TOPLEFT", 40, -180 - (i - 1) * 30)
+end
+
+
 
 -- Apply settings on load
 ApplySettings()
@@ -595,7 +607,7 @@ ApplySettings()
 -- Create a texture to act as a button to open/close the settings panel
 local settingsButton = addonMemoryFrame:CreateTexture(nil, "OVERLAY")
 settingsButton:SetPoint("TOPLEFT", 5, -5)
-settingsButton:SetSize(35, 30)
+settingsButton:SetSize(40, 30)
 settingsButton:SetTexture("Interface\\AddOns\\AMU\\settings.png")
 
 -- Make the texture interactive
@@ -620,142 +632,6 @@ closeButton:SetPushedTexture("Interface\\AddOns\\AMU\\close.png")
 closeButton:SetScript("OnClick", function()
     optionsPanel:Hide()
 end)
-
--- Function to initialize settings with default values
-local function InitializeSettings()
-    if not AMU_Settings then
-        AMU_Settings = {}
-    end
-    AMU_Settings.scale = AMU_Settings.scale or 1
-    AMU_Settings.alpha = AMU_Settings.alpha or 0.7
-    AMU_Settings.textAlpha = AMU_Settings.textAlpha or 1
-    AMU_Settings.showFPS = AMU_Settings.showFPS ~= false  -- Default to true if nil
-    AMU_Settings.showHomeLatency = AMU_Settings.showHomeLatency ~= false  -- Default to true if nil
-    AMU_Settings.showWorldLatency = AMU_Settings.showWorldLatency ~= false  -- Default to true if nil
-    AMU_Settings.showMemoryUsage = AMU_Settings.showMemoryUsage ~= false  -- Default to true if nil
-end
-
--- Ensure settings are initialized
-InitializeSettings()
-
--- Function to apply settings
-local function ApplySettings()
-    frame:SetScale(AMU_Settings.scale)
-    frame:SetBackdrop({
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",  -- Border texture
-        tile = true, tileSize = 16, edgeSize = 10,  -- Larger edge size for thick border
-        insets = { left = -6, right = -6, top = -6, bottom = -6 }  -- Negative insets for outer extension
-    })
-    frame:SetBackdropColor(0, 0, 0, AMU_Settings.showBackground and AMU_Settings.alpha or 0)  -- Toggle backdrop visibility
-    frame:SetBackdropBorderColor(0, 0, 0, AMU_Settings.showBackground and 1 or 0)
-    
-    local textAlpha = AMU_Settings.textAlpha or 1
-    fpsLabel:SetAlpha(textAlpha)
-    fpsValue:SetAlpha(textAlpha)
-    latencyHomeLabel:SetAlpha(textAlpha)
-    latencyHomeValue:SetAlpha(textAlpha)
-    latencyWorldLabel:SetAlpha(textAlpha)
-    latencyWorldValue:SetAlpha(textAlpha)
-    memoryUsageLabel:SetAlpha(textAlpha)
-    memoryUsageValue:SetAlpha(textAlpha)
-    
-    -- Adjust visibility and position of elements
-    local yOffset = -10
-    if AMU_Settings.showHomeLatency then
-        latencyHomeLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, yOffset)
-        latencyHomeLabel:Show()
-        latencyHomeValue:SetPoint("LEFT", latencyHomeLabel, "RIGHT", 5, 0)
-        latencyHomeValue:Show()
-        yOffset = yOffset - 20
-    else
-        latencyHomeLabel:Hide()
-        latencyHomeValue:Hide()
-    end
-
-    if AMU_Settings.showWorldLatency then
-        latencyWorldLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, yOffset)
-        latencyWorldLabel:Show()
-        latencyWorldValue:SetPoint("LEFT", latencyWorldLabel, "RIGHT", 5, 0)
-        latencyWorldValue:Show()
-        yOffset = yOffset - 20
-    else
-        latencyWorldLabel:Hide()
-        latencyWorldValue:Hide()
-    end
-
-    if AMU_Settings.showMemoryUsage then
-        memoryUsageLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, yOffset)
-        memoryUsageLabel:Show()
-        memoryUsageValue:SetPoint("LEFT", memoryUsageLabel, "RIGHT", 5, 0)
-        memoryUsageValue:Show()
-        yOffset = yOffset - 20
-    else
-        memoryUsageLabel:Hide()
-        memoryUsageValue:Hide()
-    end
-
-    if AMU_Settings.showFPS then
-        fpsLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, yOffset)
-        fpsLabel:Show()
-        fpsValue:SetPoint("LEFT", fpsLabel, "RIGHT", 5, 0)
-        fpsValue:Show()
-        yOffset = yOffset - 20
-    else
-        fpsLabel:Hide()
-        fpsValue:Hide()
-    end
-
-    -- Adjust frame height based on visible elements
-    local height = -yOffset + 10  -- Base height plus padding
-    frame:SetHeight(height)
-    
-    -- Hide frame if all checkboxes are unchecked
-    if not (AMU_Settings.showFPS or AMU_Settings.showHomeLatency or AMU_Settings.showWorldLatency or AMU_Settings.showMemoryUsage) then
-        frame:Hide()
-    else
-        frame:Show()
-    end
-
-    -- Show or hide the main frame based on the setting
-    if AMU_Settings.showMainFrame then
-        frame:Show()
-    else
-        frame:Hide()
-    end
-
-    -- Adjust layout based on the setting
-    if AMU_Settings.horizontalLayout then
-        latencyHomeLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
-        latencyHomeValue:SetPoint("LEFT", latencyHomeLabel, "RIGHT", 5, 0)
-        
-        latencyWorldLabel:SetPoint("TOPLEFT", latencyHomeLabel, "BOTTOMLEFT", 0, -10)
-        latencyWorldValue:SetPoint("LEFT", latencyWorldLabel, "RIGHT", 5, 0)
-
-        memoryUsageLabel:SetPoint("TOPLEFT", latencyWorldLabel, "BOTTOMLEFT", 0, -10)
-        memoryUsageValue:SetPoint("LEFT", memoryUsageLabel, "RIGHT", 5, 0)
-        fpsLabel:SetPoint("TOPLEFT", memoryUsageLabel, "BOTTOMLEFT", 0, -10)
-        fpsValue:SetPoint("LEFT", fpsLabel, "RIGHT", 5, 0)
-    else
-        latencyHomeLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
-        latencyHomeValue:SetPoint("LEFT", latencyHomeLabel, "RIGHT", 5, 0)
-
-        latencyWorldLabel:SetPoint("LEFT", latencyHomeValue, "RIGHT", 20, 0)
-        latencyWorldValue:SetPoint("LEFT", latencyWorldLabel, "RIGHT", 5, 0)
-
-        memoryUsageLabel:SetPoint("LEFT", latencyWorldValue, "RIGHT", 20, 0)
-        memoryUsageValue:SetPoint("LEFT", memoryUsageLabel, "RIGHT", 5, 0)
-
-        fpsLabel:SetPoint("LEFT", memoryUsageValue, "RIGHT", 20, 0)
-        fpsValue:SetPoint("LEFT", fpsLabel, "RIGHT", 5, 0)
-    end
-
-    -- Adjust frame width based on layout
-    if AMU_Settings.horizontalLayout then
-        frame:SetWidth(170)  -- Default width for horizontal layout
-    else
-        frame:SetWidth(500)  -- Increased width for vertical layout
-    end
-end
 
 -- Flag to track if addon memory list was updated
 local isAddonMemoryListUpdated = false
@@ -784,8 +660,6 @@ local function ToggleAddonMemoryFrame()
         addonMemoryFrame:Show()
     end
 end
-
-
 
 -- Register the right-click menu
 addonMemoryFrame:SetScript("OnMouseDown", function(self, button)
@@ -868,7 +742,37 @@ local function OpenOptionsPanel()
         optionsPanel:Show()
     end
 end
+-- Function to update checkbox and slider states from saved variables
+local function UpdateSettingsStates()
+    if not AMU_Settings then return end  -- Ensure AMU_Settings exists
 
+    if frameBorderCheckbox and fpsCheckbox and homeLatencyCheckbox and worldLatencyCheckbox and memoryUsageCheckbox and mainFrameCheckbox and layoutCheckbox and showMyStatsFrameBackdropCheckbox and myStatsFrameBackdropAlphaSlider then
+        frameBorderCheckbox:SetChecked(AMU_Settings.showBackground)
+        fpsCheckbox:SetChecked(AMU_Settings.showFPS)
+        homeLatencyCheckbox:SetChecked(AMU_Settings.showHomeLatency)
+        worldLatencyCheckbox:SetChecked(AMU_Settings.showWorldLatency)
+        memoryUsageCheckbox:SetChecked(AMU_Settings.showMemoryUsage)
+        mainFrameCheckbox:SetChecked(AMU_Settings.showMainFrame)
+        layoutCheckbox:SetChecked(AMU_Settings.horizontalLayout)
+        showMyStatsFrameBackdropCheckbox:SetChecked(AMU_Settings.showMyStatsFrameBackdrop)
+        myStatsFrameBackdropAlphaSlider:SetValue(AMU_Settings.myStatsFrameBackdropAlpha)
+        
+        -- Set text color based on checkbox state
+        frameBorderCheckbox.Text:SetTextColor(AMU_Settings.showBackground and 1 or 0.5, AMU_Settings.showBackground and 1 or 0.5, AMU_Settings.showBackground and 0 or 0.5)
+        fpsCheckbox.Text:SetTextColor(AMU_Settings.showFPS and 1 or 0.5, AMU_Settings.showFPS and 1 or 0.5, AMU_Settings.showFPS and 0 or 0.5)
+        homeLatencyCheckbox.Text:SetTextColor(AMU_Settings.showHomeLatency and 1 or 0.5, AMU_Settings.showHomeLatency and 1 or 0.5, AMU_Settings.showHomeLatency and 0 or 0.5)
+        worldLatencyCheckbox.Text:SetTextColor(AMU_Settings.showWorldLatency and 1 or 0.5, AMU_Settings.showWorldLatency and 1 or 0.5, AMU_Settings.showWorldLatency and 0 or 0.5)
+        memoryUsageCheckbox.Text:SetTextColor(AMU_Settings.showMemoryUsage and 1 or 0.5, AMU_Settings.showMemoryUsage and 1 or 0.5, AMU_Settings.showMemoryUsage and 0 or 0.5)
+        mainFrameCheckbox.Text:SetTextColor(AMU_Settings.showMainFrame and 1 or 0.5, AMU_Settings.showMainFrame and 1 or 0.5, AMU_Settings.showMainFrame and 0 or 0.5)
+        layoutCheckbox.Text:SetTextColor(AMU_Settings.horizontalLayout and 1 or 0.5, AMU_Settings.horizontalLayout and 1 or 0.5, AMU_Settings.horizontalLayout and 0 or 0.5)
+        showMyStatsFrameBackdropCheckbox.Text:SetTextColor(AMU_Settings.showMyStatsFrameBackdrop and 1 or 0.5, AMU_Settings.showMyStatsFrameBackdrop and 1 or 0.5, AMU_Settings.showMyStatsFrameBackdrop and 0 or 0.5)
+    end
+    if scaleSlider and textAlphaSlider and myStatsFrameBackdropAlphaSlider then
+        scaleSlider:SetValue(AMU_Settings.scale)
+        textAlphaSlider:SetValue(AMU_Settings.textAlpha)
+        myStatsFrameBackdropAlphaSlider:SetValue(AMU_Settings.myStatsFrameBackdropAlpha)
+    end
+end
 -- Create a slash command to open the options panel
 SLASH_AMUOPTIONS1 = "/AMU Opt"
 SlashCmdList["AMUOPT"] = OpenOptionsPanel
@@ -877,45 +781,6 @@ SlashCmdList["AMUOPT"] = OpenOptionsPanel
 SLASH_MYADDON1 = "/AMU"
 SlashCmdList["MYADDON"] = ToggleAddonMemoryFrame
 
--- Function to update checkbox and slider states from saved variables
-local function UpdateSettingsStates()
-    if frameBorderCheckbox and fpsCheckbox and homeLatencyCheckbox and worldLatencyCheckbox and memoryUsageCheckbox and mainFrameCheckbox and layoutCheckbox then
-        frameBorderCheckbox:SetChecked(AMU_Settings.showBackground)
-        fpsCheckbox:SetChecked(AMU_Settings.showFPS)
-        homeLatencyCheckbox:SetChecked(AMU_Settings.showHomeLatency)
-        worldLatencyCheckbox:SetChecked(AMU_Settings.showWorldLatency)
-        memoryUsageCheckbox:SetChecked(AMU_Settings.showMemoryUsage)
-        mainFrameCheckbox:SetChecked(AMU_Settings.showMainFrame)
-        layoutCheckbox:SetChecked(AMU_Settings.horizontalLayout)
-        
-        -- Set text color based on checkbox state
-        frameBorderCheckbox.Text:SetTextColor(AMU_Settings.showBackground and 1 or 0.5, AMU_Settings.showBackground and 1 or 0.5, AMU_Settings.showBackground and 0 or 0.5)
-        fpsCheckbox.Text:SetTextColor(AMU_Settings.showFPS and 1 or 0.5, AMU_Settings.showFPS and 1 or 0.5, AMU_Settings.showFPS and 0 or 0.5)
-        homeLatencyCheckbox.Text:SetTextColor(AMU_Settings.showHomeLatency and 1 or 0.5, AMU_Settings.showHomeLatency and 1 or 0.5, AMU_Settings.showHomeLatency and 0 or 0.5)
-        worldLatencyCheckbox.Text:SetTextColor(AMU_Settings.showWorldLatency and 1 or 0.5, AMU_Settings.showWorldLatency and 1 or 0.5, AMU_Settings.showWorldLatency and 0 or 0.5)
-        layoutCheckbox .Text:SetTextColor(AMU_Settings.horizontalLayout and 1 or 0.5, AMU_Settings.horizontalLayout and 1 or 0.5, AMU_Settings.horizontalLayout and 0 or 0.5)
-        
-    end
-    if scaleSlider and textAlphaSlider then
-        scaleSlider:SetValue(AMU_Settings.scale)
-        textAlphaSlider:SetValue(AMU_Settings.textAlpha)
-    end
-end
-
-AMUOptionsPanel:SetScript("OnShow", UpdateSettingsStates)
-
--- Save the checkbox states when the player logs out
-local function AMU_Settings()
-    frameBorderCheckbox:GetChecked(AMU_Settings.showBackground)
-    fpsCheckbox:GetChecked(AMU_Settings.showFPS)
-    homeLatencyCheckbox:GetChecked(AMU_Settings.showHomeLatency)
-    worldLatencyCheckbox:GetChecked(AMU_Settings.showWorldLatency)
-    memoryUsageCheckbox:GetChecked(AMU_Settings.showMemoryUsage)
-    mainFrameCheckbox:GetChecked(AMU_Settings.showMainFrame)
-    layoutCheckbox:GetChecked(AMU_Settings.horizontalLayout)
-    scaleSlider:SetValue(AMU_Settings.scale)
-    textAlphaSlider:SetValue(AMU_Settings.textAlpha)
-end
 
 -- Event handler for loading and saving variables
 local eventFrame = CreateFrame("Frame")
@@ -933,11 +798,11 @@ eventFrame:SetScript("OnEvent", function(self, event, addon)
             end
         end
     elseif event == "PLAYER_LOGOUT" then
-        -- Ensure the MyCords_SaveVariables function exists before calling it
-        if AMU_Settings then
-            AMU_Settings()  -- Save checkbox states on logout
+        -- Ensure the SaveSettings function exists before calling it
+        if SaveSettings then
+            SaveSettings()  -- Save checkbox states on logout
         else
-            print("Warning: AMU_Settings function not found.")
+            print("Warning: SaveSettings function not found.")
         end
     end
 end)
