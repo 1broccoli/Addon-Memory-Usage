@@ -1,3 +1,5 @@
+---- Only update status once to fix Sort method
+
 -- Variable to track if the message has already been printed
 local messagePrinted = false
 
@@ -18,6 +20,7 @@ local function InitializeSettings()
     AMU_Settings.horizontalLayout = AMU_Settings.horizontalLayout or false  -- Default to vertical layout
     AMU_Settings.showMyStatsFrameBackdrop = AMU_Settings.showMyStatsFrameBackdrop ~= false  -- Default to true if nil
     AMU_Settings.myStatsFrameBackdropAlpha = AMU_Settings.myStatsFrameBackdropAlpha or 0.65  -- Default alpha for backdrop
+    AMU_Settings.sortByMemory = AMU_Settings.sortByMemory or false  -- Default to sorting by name
 end
 
 
@@ -257,12 +260,7 @@ addonMemoryFrame:SetScript("OnDragStart", addonMemoryFrame.StartMoving)
 addonMemoryFrame:SetScript("OnDragStop", addonMemoryFrame.StopMovingOrSizing)
 addonMemoryFrame:Hide()  -- Initially hidden
 
--- Create a tooltip for the addonMemoryFrame
-addonMemoryFrame:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Right click to close", 1, 1, 1, true)  -- White text
-    GameTooltip:Show()
-end)
+
 
 addonMemoryFrame:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
@@ -280,7 +278,7 @@ title:SetText("Addon Memory Usage")
 title:SetTextColor(1, 0.5, 0.5) -- Color of title: light red
 
 -- Function to clean memory and update the title temporarily
-local function CleanMemory()
+local function CleanMemory(frameTitle)
     -- Collect garbage and calculate the amount collected
     local before = collectgarbage("count")
     collectgarbage("collect")
@@ -298,11 +296,11 @@ local function CleanMemory()
     end
 
     -- Change title to show amount of memory cleaned
-    title:SetText(string.format("Cleaned: %s", memoryText))
+    frameTitle:SetText(string.format("Cleaned: %s", memoryText))
     
     -- Revert title back after 3 seconds
     C_Timer.After(3, function()
-        title:SetText("Addon Memory Usage") -- Revert back to original title
+        frameTitle:SetText("Addon Memory Usage") -- Revert back to original title
     end)
 end
 
@@ -326,13 +324,17 @@ local contentFrame = CreateFrame("Frame", "AddonMemoryContentFrame", scrollFrame
 contentFrame:SetSize(300, 400) -- Set the size of the content frame
 scrollFrame:SetScrollChild(contentFrame)
 
--- Function to update the addon memory list
-local function UpdateAddonMemoryList()
-    -- Clear existing memory labels
+-- Function to clear the content frame
+local function ClearContentFrame()
     for _, child in ipairs({contentFrame:GetChildren()}) do
         child:Hide()
         child:SetParent(nil) -- Remove from parent to avoid clutter
     end
+end
+
+-- Function to update the addon memory list
+local function UpdateAddonMemoryList()
+    ClearContentFrame()  -- Clear existing memory labels
 
     local addons = {}
     local numAddOns = _G.GetNumAddOns()
@@ -344,8 +346,12 @@ local function UpdateAddonMemoryList()
         end
     end
 
-    -- Sort addons alphabetically by name
-    table.sort(addons, function(a, b) return a.name < b.name end)
+    -- Sort addons based on the current sorting preference
+    if AMU_Settings.sortByMemory then
+        table.sort(addons, function(a, b) return a.memUsage > b.memUsage end)
+    else
+        table.sort(addons, function(a, b) return a.name < b.name end)
+    end
 
     local yOffset = 0
     for _, addon in ipairs(addons) do
@@ -424,7 +430,7 @@ cleanButton:GetFontString():SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
 
 -- Set the button's click behavior
 cleanButton:SetScript("OnClick", function()
-    CleanMemory()  -- Call the CleanMemory function when clicked
+    CleanMemory(title)  -- Call the CleanMemory function when clicked
 end)
 
 -- Add tooltip functionality
@@ -438,36 +444,246 @@ cleanButton:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
 end)
 
--- Create a reload button
-local reloadButton = CreateFrame("Button", nil, addonMemoryFrame, "UIPanelButtonTemplate")
-reloadButton:SetPoint("TOPRIGHT", -5, -5)
-reloadButton:SetSize(60, 30)
-reloadButton:SetText("Reload")
+-- Create a new frame for displaying addon information
+local addonInfoFrame = CreateFrame("Frame", "AddonInfoFrame", UIParent, "BackdropTemplate")
+addonInfoFrame:SetSize(350, 600)  -- Frame size
+addonInfoFrame:SetPoint("CENTER")  -- Center the frame
+addonInfoFrame:SetBackdrop({
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",  -- Border texture
+    tile = true, tileSize = 16, edgeSize = 12,  -- Larger edge size to extend the border
+    insets = { left = -6, right = -6, top = -6, bottom = -6 }  -- Negative insets for outer extension
+})
+addonInfoFrame:SetBackdropColor(0, 0, 0, 0.1)  -- Black background with transparency
+addonInfoFrame:SetBackdropBorderColor(0, 0, 0)  -- Black border
+addonInfoFrame:SetMovable(true)
+addonInfoFrame:EnableMouse(true)
+addonInfoFrame:RegisterForDrag("LeftButton")
+addonInfoFrame:SetScript("OnDragStart", addonInfoFrame.StartMoving)
+addonInfoFrame:SetScript("OnDragStop", addonInfoFrame.StopMovingOrSizing)
+addonInfoFrame:Hide()  -- Initially hidden
 
--- Set the button textures for a dark theme
-reloadButton:SetNormalTexture("Interface\\Buttons\\UI-Panel-Button-Up")
-local normalTexture = reloadButton:GetNormalTexture()
-normalTexture:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
-normalTexture:SetVertexColor(0.2, 0.2, 0.2)  -- Dark gray for normal state
+-- Create a title for the addon info frame
+local addonInfoTitle = addonInfoFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+addonInfoTitle:SetPoint("TOP", 0, -10)
+addonInfoTitle:SetText("Addon Memory Usage")
+addonInfoTitle:SetTextColor(1, 0.5, 0.5) -- Color of title: light red
 
-reloadButton:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
-local highlightTexture = reloadButton:GetHighlightTexture()
-highlightTexture:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
-highlightTexture:SetVertexColor(0.4, 0.4, 0.4)  -- Lighter gray for hover
+-- Create a scroll frame for addon info list
+local addonInfoScrollFrame = CreateFrame("ScrollFrame", "AddonInfoScrollFrame", addonInfoFrame, "UIPanelScrollFrameTemplate")
+addonInfoScrollFrame:SetPoint("TOPLEFT", 10, -40)
+addonInfoScrollFrame:SetPoint("BOTTOMRIGHT", -30, 40)
 
-reloadButton:SetPushedTexture("Interface\\Buttons\\UI-Panel-Button-Down")
-local pushedTexture = reloadButton:GetPushedTexture()
-pushedTexture:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
-pushedTexture:SetVertexColor(0.1, 0.1, 0.1)  -- Darker gray for clicked
+-- Create a content frame for the scroll frame
+local addonInfoContentFrame = CreateFrame("Frame", "AddonInfoContentFrame", addonInfoScrollFrame)
+addonInfoContentFrame:SetSize(300, 400) -- Set the size of the content frame
+addonInfoScrollFrame:SetScrollChild(addonInfoContentFrame)
 
--- Change the button text color to white for better visibility on dark background
-reloadButton:GetFontString():SetTextColor(1, 1, 1)  -- White color text
-reloadButton:GetFontString():SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")  -- Font settings
+-- Function to update the addon info list
+local function UpdateAddonInfoList()
+    -- Clear existing memory labels
+    for _, child in ipairs({addonInfoContentFrame:GetChildren()}) do
+        child:Hide()
+        child:SetParent(nil) -- Remove from parent to avoid clutter
+    end
+
+    local addons = {}
+    local numAddOns = _G.GetNumAddOns()
+    for i = 1, numAddOns do
+        if IsAddOnLoaded(i) then  -- Only show loaded addons
+            local name = GetAddOnInfo(i)
+            local memUsage = GetAddOnMemoryUsage(i)
+            table.insert(addons, {name = name, memUsage = memUsage})
+        end
+    end
+
+    -- Sort addons by memory usage in descending order
+    table.sort(addons, function(a, b) return a.memUsage > b.memUsage end)
+
+    local yOffset = 0
+    for _, addon in ipairs(addons) do
+        local name = addon.name
+        local memUsage = addon.memUsage
+        local memText
+        local memColor
+
+        -- Display memory usage based on its value
+        if memUsage < 1 then
+            memText = string.format("%d b", math.ceil(memUsage * 1024)) -- Always show bytes if < 1KB
+            memColor = {0, 1, 1} -- Cyan for Bytes
+        elseif memUsage < 1000 then
+            memText = string.format("%d kb", math.ceil(memUsage)) -- Green KB
+            memColor = {0, 1, 0} -- Green for KB
+        else
+            memText = string.format("%d mb", math.ceil(memUsage / 1024)) -- Yellow MB
+            memColor = {1, 1, 0} -- Yellow for MB
+        end
+
+        -- Create a font string for the addon name
+        local addonNameText = addonInfoContentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        addonNameText:SetPoint("TOPLEFT", 10, -yOffset)
+        addonNameText:SetText(name)
+        addonNameText:SetTextColor(1, 1, 1) -- White color for addon names
+
+        -- Create a font string for the memory usage
+        local memoryUsageText = addonInfoContentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        memoryUsageText:SetPoint("TOPRIGHT", -10, -yOffset) -- Align right with some padding
+        memoryUsageText:SetText(memText)
+        memoryUsageText:SetTextColor(unpack(memColor)) -- Apply color differential
+
+        yOffset = yOffset + 20
+    end
+
+    addonInfoContentFrame:SetHeight(yOffset) -- Update content frame height
+    if yOffset > 0 then
+        addonInfoContentFrame:Show() -- Show the updated content only if there are addons to display
+    else
+        addonInfoContentFrame:Hide() -- Hide if there are no addons
+    end
+end
+
+-- Create a texture to act as a button to sort the addon memory list
+local sortTexture = addonMemoryFrame:CreateTexture(nil, "OVERLAY")
+sortTexture:SetPoint("TOPRIGHT", -30, -7)
+sortTexture:SetSize(20, 20)
+sortTexture:SetTexture("Interface\\AddOns\\AMU\\sort.png")
+sortTexture:SetVertexColor(1, 1, 1)  -- Set initial color to white
+
+-- Change color on mouse enter and leave
+sortTexture:SetScript("OnEnter", function(self)
+    self:SetVertexColor(1, 1, 0)  -- Yellow color on mouse over
+end)
+sortTexture:SetScript("OnLeave", function(self)
+    self:SetVertexColor(1, 1, 1)  -- Revert to white color
+end)
+
+-- Make the texture interactive
+sortTexture:EnableMouse(true)
+sortTexture:SetScript("OnMouseDown", function(self, button)
+    if button == "LeftButton" then
+        AMU_Settings.sortByMemory = not AMU_Settings.sortByMemory  -- Toggle sorting preference
+        ReloadUI()  -- Reload the UI to save the setting and apply the new sorting
+    end
+end)
+
+-- Register the right-click menu for the addon info frame
+addonInfoFrame:SetScript("OnMouseDown", function(self, button)
+    if button == "RightButton" then
+        self:Hide() -- Close the addon info frame on right click
+    end
+end)
+
+-- Create a texture to act as a button to open/close the settings panel on addon info frame
+local settingsButtonInfoFrame = addonInfoFrame:CreateTexture(nil, "OVERLAY")
+settingsButtonInfoFrame:SetPoint("TOPLEFT", 5, -5)
+settingsButtonInfoFrame:SetSize(40, 30)
+settingsButtonInfoFrame:SetTexture("Interface\\AddOns\\AMU\\settings.png")
+
+-- Make the texture interactive
+settingsButtonInfoFrame:EnableMouse(true)
+settingsButtonInfoFrame:SetScript("OnMouseDown", function(self, button)
+    if button == "LeftButton" then
+        if optionsPanel:IsVisible() then
+            optionsPanel:Hide()
+        else
+            optionsPanel:Show()
+        end
+    end
+end)
+
+-- Create the clean memory button for addon info frame
+local cleanButtonInfoFrame = CreateFrame("Button", nil, addonInfoFrame, "UIPanelButtonTemplate")
+cleanButtonInfoFrame:SetPoint("BOTTOMRIGHT", -120, 10)
+cleanButtonInfoFrame:SetSize(120, 30)
+
+-- Set the normal texture to green
+cleanButtonInfoFrame:SetNormalTexture("Interface\\Buttons\\UI-Panel-Button-Up")
+local normalTextureInfoFrame = cleanButtonInfoFrame:GetNormalTexture()
+normalTextureInfoFrame:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
+normalTextureInfoFrame:SetVertexColor(0, 1, 0)  -- Green color for normal state
+
+-- Set the highlight (hover) texture
+cleanButtonInfoFrame:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+local highlightTextureInfoFrame = cleanButtonInfoFrame:GetHighlightTexture()
+highlightTextureInfoFrame:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
+highlightTextureInfoFrame:SetVertexColor(0, 0, 0)  -- Lighter green for hover
+
+-- Set the pushed (clicked) texture
+cleanButtonInfoFrame:SetPushedTexture("Interface\\Buttons\\UI-Panel-Button-Down")
+local pushedTextureInfoFrame = cleanButtonInfoFrame:GetPushedTexture()
+pushedTextureInfoFrame:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
+pushedTextureInfoFrame:SetVertexColor(0.15, .5, 0.25)  -- Darker green for clicked
+
+-- Set the disabled texture if needed (optional)
+cleanButtonInfoFrame:SetDisabledTexture("Interface\\Buttons\\UI-Panel-Button-Disabled")
+
+-- Change the button text color to white for better readability
+cleanButtonInfoFrame:SetText("Clean Memory")
+cleanButtonInfoFrame:GetFontString():SetTextColor(0.3, 1, 0.5)  -- Green color
+
+-- Set the font size (optional, adjust as needed)
+cleanButtonInfoFrame:GetFontString():SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
 
 -- Set the button's click behavior
-reloadButton:SetScript("OnClick", function()
-    ReloadUI()  -- Reload the interface when the button is clicked
+cleanButtonInfoFrame:SetScript("OnClick", function()
+    CleanMemory(addonInfoTitle)  -- Call the CleanMemory function when clicked
 end)
+
+-- Add tooltip functionality
+cleanButtonInfoFrame:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText("This helps reduce lag and improve performance.", nil, nil, nil, nil, true)
+    GameTooltip:Show()
+end)
+
+cleanButtonInfoFrame:SetScript("OnLeave", function(self)
+    GameTooltip:Hide()
+end)
+
+-- Create a button to show/hide the addon memory frame from addon info frame
+local toggleAddonMemoryButton = CreateFrame("Button", nil, addonInfoFrame, "UIPanelButtonTemplate")
+toggleAddonMemoryButton:SetPoint("TOPRIGHT", -20, -10)
+toggleAddonMemoryButton:SetSize(25, 25)  -- Smaller size to fit the word "Sort"
+toggleAddonMemoryButton:SetText("Sort")
+
+-- Make the texture interactive
+sortTexture:EnableMouse(true)
+sortTexture:SetScript("OnMouseDown", function(self, button)
+    if button == "LeftButton" then
+        AMU_Settings.sortByMemory = not AMU_Settings.sortByMemory  -- Toggle sorting preference
+        ReloadUI()  -- Reload the UI to save the setting and apply the new sorting
+    end
+end)
+
+-- Set the button textures for a dark theme
+toggleAddonMemoryButton:SetNormalTexture("Interface\\Buttons\\UI-Panel-Button-Up")
+local normalTextureToggle = toggleAddonMemoryButton:GetNormalTexture()
+normalTextureToggle:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
+normalTextureToggle:SetVertexColor(0.2, 0.2, 0.2)  -- Dark gray for normal state
+
+toggleAddonMemoryButton:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+local highlightTextureToggle = toggleAddonMemoryButton:GetHighlightTexture()
+highlightTextureToggle:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
+highlightTextureToggle:SetVertexColor(0.4, 0.4, 0.4)  -- Lighter gray for hover
+
+toggleAddonMemoryButton:SetPushedTexture("Interface\\Buttons\\UI-Panel-Button-Down")
+local pushedTextureToggle = toggleAddonMemoryButton:GetPushedTexture()
+pushedTextureToggle:SetTexCoord(0, 0.625, 0, 0.6875)  -- Crop the texture
+pushedTextureToggle:SetVertexColor(0.1, 0.1, 0.1)  -- Darker gray for clicked
+
+-- Change the button text color to white for better visibility on dark background
+toggleAddonMemoryButton:GetFontString():SetTextColor(1, 1, 1)  -- White color text
+toggleAddonMemoryButton:GetFontString():SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")  -- Font settings
+
+-- Set the button's click behavior
+toggleAddonMemoryButton:SetScript("OnClick", function()
+    if addonMemoryFrame:IsVisible() then
+        addonMemoryFrame:Hide()
+    else
+        UpdateAddonMemoryList()
+        addonMemoryFrame:Show()
+    end
+end)
+
 -- Create interface options panel
 local optionsPanel = CreateFrame("Frame", "AMUOptionsPanel", UIParent, "BackdropTemplate")
 optionsPanel.name = "Addon Memory Usage"  -- Ensure the name matches what you expect to see in the options
@@ -603,8 +819,19 @@ ApplySettings()
 -- Create a texture to act as a button to open/close the settings panel
 local settingsButton = addonMemoryFrame:CreateTexture(nil, "OVERLAY")
 settingsButton:SetPoint("TOPLEFT", 5, -5)
-settingsButton:SetSize(40, 30)
+settingsButton:SetSize(35, 25)
 settingsButton:SetTexture("Interface\\AddOns\\AMU\\settings.png")
+
+-- Add tooltip functionality
+settingsButton:EnableMouse(true)
+settingsButton:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Click to open settings", nil, nil, nil, nil, true)
+    GameTooltip:Show()
+end)
+settingsButton:SetScript("OnLeave", function(self)
+    GameTooltip:Hide()
+end)
 
 -- Make the texture interactive
 settingsButton:EnableMouse(true)
@@ -619,14 +846,38 @@ settingsButton:SetScript("OnMouseDown", function(self, button)
 end)
 
 -- Create a close button for the settings panel
-local closeButton = CreateFrame("Button", nil, optionsPanel)
-closeButton:SetPoint("TOPRIGHT", -5, -5)
-closeButton:SetSize(20, 20)  -- Adjust size as needed
-closeButton:SetNormalTexture("Interface\\AddOns\\AMU\\close.png")
-closeButton:SetHighlightTexture("Interface\\AddOns\\AMU\\close.png")
-closeButton:SetPushedTexture("Interface\\AddOns\\AMU\\close.png")
-closeButton:SetScript("OnClick", function()
+local closeButtonSettings = CreateFrame("Button", nil, optionsPanel)
+closeButtonSettings:SetPoint("TOPRIGHT", -5, -5)
+closeButtonSettings:SetSize(25, 25)  -- Adjust size as needed
+closeButtonSettings:SetNormalTexture("Interface\\AddOns\\AMU\\close.png")
+
+closeButtonSettings:SetScript("OnClick", function()
     optionsPanel:Hide()
+end)
+
+-- Change texture color on mouse enter and leave
+closeButtonSettings:SetScript("OnEnter", function(self)
+    self:GetNormalTexture():SetVertexColor(1, 0, 0)  -- Red color on mouse over
+end)
+closeButtonSettings:SetScript("OnLeave", function(self)
+    self:GetNormalTexture():SetVertexColor(1, 1, 1)  -- Revert to original color
+end)
+
+-- Create a close button for the addon memory frame
+local closeButtonMemory = CreateFrame("Button", nil, addonMemoryFrame)
+closeButtonMemory:SetPoint("TOPRIGHT", -5, -5)
+closeButtonMemory:SetSize(25, 25)  -- Adjust size as needed
+closeButtonMemory:SetNormalTexture("Interface\\AddOns\\AMU\\close.png")
+closeButtonMemory:SetScript("OnClick", function()
+    addonMemoryFrame:Hide()
+end)
+
+-- Change texture color on mouse enter and leave
+closeButtonMemory:SetScript("OnEnter", function(self)
+    self:GetNormalTexture():SetVertexColor(1, 0, 0)  -- Red color on mouse over
+end)
+closeButtonMemory:SetScript("OnLeave", function(self)
+    self:GetNormalTexture():SetVertexColor(1, 1, 1)  -- Revert to original color
 end)
 
 -- Flag to track if addon memory list was updated
@@ -769,9 +1020,6 @@ local function UpdateSettingsStates()
         myStatsFrameBackdropAlphaSlider:SetValue(AMU_Settings.myStatsFrameBackdropAlpha)
     end
 end
--- Create a slash command to open the options panel
-SLASH_AMUOPTIONS1 = "/AMU Opt"
-SlashCmdList["AMUOPT"] = OpenOptionsPanel
 
 -- Create a slash command to toggle the addon memory frame
 SLASH_MYADDON1 = "/AMU"
@@ -792,6 +1040,7 @@ eventFrame:SetScript("OnEvent", function(self, event, addon)
             else
                 print("Warning: UpdateSettingsStates function not found.")
             end
+
         end
     elseif event == "PLAYER_LOGOUT" then
         -- Ensure the SaveSettings function exists before calling it
@@ -802,3 +1051,6 @@ eventFrame:SetScript("OnEvent", function(self, event, addon)
         end
     end
 end)
+
+
+
