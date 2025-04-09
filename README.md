@@ -1,5 +1,5 @@
 
-
+ 
 AMU is a performance-monitoring tool designed for World of Warcraft players who want to keep track of their game's performance metrics. The addon displays information such as home and world latency, frames per second (FPS), and overall memory usage from other addons.
 
 Key Features:
